@@ -1,0 +1,48 @@
+from flask import Flask, request, jsonify
+from tensorflow.keras.models import load_model
+import cv2
+import numpy as np
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app, resources={r"/predict": {"origins": ""}})
+
+model = load_model("model1.h5")
+classes = ['camera', 'Keyboards', 'laptop', 'Mobile', 'Mouses', 'smartwatch', 'TV' ]  # Define the classes for prediction
+
+def preprocess_image(image):
+    img = cv2.resize(image, (300, 300))
+    img = img / 255.0
+    img = img.reshape(300, 300, 3)
+    return img
+
+@app.route("/")
+def index():
+    return "Welcome to the E-waste Detection"
+
+@app.route("/predict", methods=["POST"])
+def predict():
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part in the request'}), 400
+
+    file = request.files["file"]
+    print(file.filename)
+    if file.filename == "":
+        return jsonify({'error': 'No selected file'}), 400
+
+    image = cv2.imdecode(np.frombuffer(file.read(), np.uint8), cv2.IMREAD_COLOR)
+    print("------------------------------")
+
+
+
+    preprocessed_image = preprocess_image(image)
+    print(preprocessed_image)
+    prediction = model.predict(preprocessed_image)[0][0]
+
+
+    predicted_class = classes[int(prediction >= 0.5)]
+    return jsonify({"prediction": predicted_class})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
